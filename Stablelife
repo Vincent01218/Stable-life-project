@@ -1,0 +1,44 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import requests
+import json
+import time
+from sklearn.linear_model import LinearRegression
+from datetime import datetime, timedelta
+
+# Constants
+API_KEY = 'YOUR_API_KEY_HERE'
+STOCK_SYMBOL = 'AAPL'
+
+# Function to fetch historical stock prices
+def fetch_historical_prices(symbol, days):
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+    url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}&outputsize=full'
+    response = requests.get(url)
+    data = response.json()
+    df = pd.DataFrame(data['Time Series (Daily)']).T
+    df.index = pd.to_datetime(df.index)
+    df = df[(df.index >= start_date) & (df.index <= end_date)]
+    df['4. close'] = df['4. close'].astype(float)
+    return df
+
+# Function to predict stock price using linear regression
+def predict_price(df, days):
+    X = np.arange(len(df)).reshape(-1, 1)
+    y = df['4. close'].values
+    model = LinearRegression()
+    model.fit(X, y)
+    next_day = len(df) + days
+    return model.predict([[next_day]])[0]
+
+# Main loop to continuously fetch and predict stock price
+while True:
+    try:
+        historical_data = fetch_historical_prices(STOCK_SYMBOL, 365)
+        next_day_price = predict_price(historical_data, 1)
+        print(f'Predicted price for {STOCK_SYMBOL} tomorrow: {next_day_price}')
+    except Exception as e:
+        print(f'Error fetching or predicting stock price: {e}')
+    time.sleep(10)  # Fetch and predict price every 10 seconds
